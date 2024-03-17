@@ -17,9 +17,6 @@ Node<T>::Node(){
     this->next = NULL;
 }
 
-// =============== Class List =============== //
-
-
 // =============== Class pList =============== //
 template<typename T>
 pList<T>::pList(){
@@ -490,71 +487,47 @@ int kNN::index_k_nearest_neighbors(pList<double>* distances, int k) const{
     }
 
     // Sorting
-    // for(int i = 0; i <= k; i++){
-    //     int min_index = i;
-    //     double min_dist = tmp->get(i);
-    //     for(int j = i+1; j < tmp->length(); j++){
-    //         if(tmp->get(j) < min_dist){
-    //             min_index = j;
-    //             min_dist = tmp->get(j);
-    //         }
-    //     }
-    //     if(min_index != i){
-    //         std::swap(tmp->get(i), tmp->get(min_index));
-    //         std::swap(index->get(i), index->get(min_index));
-    //     }
-    // }
-
-    int n = tmp->length();
     for(int i = 0; i < k; i++){
-        for(int j = n - 1; j > i; j--){
-            if(tmp->get(j) < tmp->get(j-1)){
-                swap(tmp->get(j), tmp->get(j-1));
-                swap(index->get(j), index->get(j-1));
+        int min_index = i;
+        double min_dist = tmp->get(i);
+        for(int j = i+1; j < tmp->length(); j++){
+            if(tmp->get(j) < min_dist){
+                min_index = j;
+                min_dist = tmp->get(j);
             }
+        }
+        if(min_index != i){
+            std::swap(tmp->get(i), tmp->get(min_index));
+            std::swap(index->get(i), index->get(min_index));
         }
     }
 
     int res_value = this->Y_train.getData()->get(index->get(0))->get(0);
     int res_cnt = 1;
 
+    int res_weight = index->get(0);
     for(int i = 0; i < k; i++){
-        int current_val = this->Y_train.getData()->get(index->get(i))->get(0);
-        int cnt = 1;
-        for(int j = i+1; j < k; j++){
-            if(this->Y_train.getData()->get(index->get(j))->get(0) == current_val){
-                cnt++;
+        int current_weight = 0;
+        int current_value = this->Y_train.getData()->get(index->get(i))->get(0);
+        int current_cnt = 0;
+        for(int j = 0; j < k; j++){
+            if(this->Y_train.getData()->get(index->get(j))->get(0) == current_value){
+                current_cnt++;
+                current_weight += index->get(j);
             }
         }
-        if(cnt > res_cnt){
-            res_cnt = cnt;
-            res_value = current_val;
+        if(current_cnt > res_cnt){
+            res_cnt = current_cnt;
+            res_value = current_value;
+            res_weight = current_weight;
+        }else if(current_cnt == res_cnt){
+            if(res_weight < current_weight){
+                res_cnt = current_cnt;
+                res_value = current_value;
+                res_weight = current_weight;
+            }
         }
     }
-
-    // int res_weight = index->get(0);
-    // for(int i = 0; i < k; i++){
-    //     int current_weight = 0;
-    //     int current_value = this->Y_train.getData()->get(index->get(i))->get(0);
-    //     int current_cnt = 0;
-    //     for(int j = 0; j < k; j++){
-    //         if(this->Y_train.getData()->get(index->get(j))->get(0) == current_value){
-    //             current_cnt++;
-    //             current_weight += index->get(j);
-    //         }
-    //     }
-    //     if(current_cnt > res_cnt){
-    //         res_cnt = current_cnt;
-    //         res_value = current_value;
-    //         res_weight = current_weight;
-    //     }else if(current_cnt == res_cnt){
-    //         if(res_weight < current_weight){
-    //             res_cnt = current_cnt;
-    //             res_value = current_value;
-    //             res_weight = current_weight;
-    //         }
-    //     }
-    // }
     delete tmp;
     delete index;
     return res_value;
