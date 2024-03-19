@@ -20,6 +20,7 @@
         "unordered_set": "cpp",
         "iostream": "cpp",
         "ostream": "cpp",
-        "stdexcept": "cpp"
+        "stdexcept": "cpp",
+        "new": "cpp"
     }
 }

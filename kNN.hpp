@@ -50,6 +50,7 @@ class pList : public List<T>{
         void print() const override;
         void reverse() override;
         int indexOf(T name);
+        bool empty() const;
 };
 
 class Dataset {

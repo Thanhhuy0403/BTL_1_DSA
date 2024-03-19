@@ -123,10 +123,10 @@ void pList<T>::remove(int index){
                 this->size--;
             }else{
                 tmp = this->tail;
-                for(int i = this->size-1; i > index - 1; i--){
+                for(int i = this->size-1; i > index + 1; i--){
                     tmp = tmp->prev;
                 }
-                Node<T>* tmp2 = tmp->next;
+                Node<T>* tmp2 = tmp->prev;
                 tmp->prev = tmp2->prev;
                 tmp2->prev->next = tmp;
                 delete tmp2;
@@ -237,6 +237,12 @@ int pList<T>::indexOf(T name){
     return -1;
 }
 
+template<typename T>
+bool pList<T>::empty() const{
+    if(this->size != 0) return false;
+    else return true;
+}
+
 // =============== Class Dataset =============== //
 Dataset::Dataset(){
     this->data = new pList<pList<int>*>();
@@ -258,6 +264,9 @@ Dataset::Dataset(const Dataset& other){
 }
 
 Dataset& Dataset::operator=(const Dataset& other){
+    if(other.getData()->length() == 0 && other.getNameLables()->length() == 0){
+        return *this;
+    }
     if(this != &other){
         if(this->nameLables != NULL){
             delete this->nameLables;
@@ -316,13 +325,15 @@ bool Dataset::loadFromCSV(const char* fileName){
 }
 
 void Dataset::printHead(int nRows, int nCols) const{
-    if(nRows <= 0 || nCols <= 0) return;
+    if(this->getData()->empty() && this->getNameLables()->empty()) return;
+    if(nRows < 0 || nCols < 0) return;
     if(nRows > this->data->length()){
         nRows = this->data->length();
     }
-    if(nCols > this->data->get(0)->length()){
-        nCols = this->data->get(0)->length();
+    if(nCols > this->nameLables->length()){
+        nCols = this->nameLables->length();
     }
+
     for(int i = 0; i < nCols; i++){
         cout << this->nameLables->get(i);
         if(i != nCols-1){
@@ -375,7 +386,7 @@ void Dataset::printTail(int nRows, int nCols) const{
 
 void Dataset::getShape(int& nRows, int& nCols) const{
     nRows = this->data->length();
-    nCols = this->data->get(0)->length();
+    nCols = this->nameLables->length();
 }
 
 void Dataset::columns() const{
@@ -386,11 +397,10 @@ void Dataset::columns() const{
             cout << " ";
         }
     }
-    cout << endl;
 }
 
 bool Dataset::drop(int axis, int index, string columnName){
-    if(axis != 0 || axis != 1){
+    if(axis != 0 && axis != 1){
         return false;
     }
     else{
@@ -419,10 +429,10 @@ bool Dataset::drop(int axis, int index, string columnName){
 
 Dataset Dataset::extract(int startRow, int endRow, int startCol, int endCol) const{
     Dataset res;
-    if(endRow == -1){
+    if(endRow == -1 || endRow >= this->data->length()){
         endRow = this->data->length()-1;
     }
-    if(endCol == -1){
+    if(endCol == -1 || endCol >= this->nameLables->length()){
         endCol = this->nameLables->length()-1;
     }
 
@@ -437,6 +447,7 @@ Dataset Dataset::extract(int startRow, int endRow, int startCol, int endCol) con
         }
         res.data->push_back(tmp);
     }
+
     return res;
 }
 
@@ -487,44 +498,41 @@ int kNN::index_k_nearest_neighbors(pList<double>* distances, int k) const{
     }
 
     // Sorting
-    for(int i = 0; i < k; i++){
-        int min_index = i;
-        double min_dist = tmp->get(i);
-        for(int j = i+1; j < tmp->length(); j++){
-            if(tmp->get(j) < min_dist){
-                min_index = j;
-                min_dist = tmp->get(j);
+    if(distances->length() > k){
+        for(int i = 0; i < k; i++){
+            int min_index = i;
+            double min_dist = tmp->get(i);
+            for(int j = i+1; j < tmp->length(); j++){
+                if(tmp->get(j) < min_dist){
+                    min_index = j;
+                    min_dist = tmp->get(j);
+                }
+            }
+            if(min_index != i){
+                std::swap(tmp->get(i), tmp->get(min_index));
+                std::swap(index->get(i), index->get(min_index));
             }
         }
-        if(min_index != i){
-            std::swap(tmp->get(i), tmp->get(min_index));
-            std::swap(index->get(i), index->get(min_index));
-        }
     }
+    
 
     int res_value = this->Y_train.getData()->get(index->get(0))->get(0);
     int res_cnt = 1;
 
-    int res_weight = index->get(0);
-    for(int i = 0; i < k; i++){
-        int current_weight = 0;
+    for(int i = 0; i < k && i < tmp->length(); i++){
         int current_value = this->Y_train.getData()->get(index->get(i))->get(0);
         int current_cnt = 0;
-        for(int j = 0; j < k; j++){
+        for(int j = 0; j < k && j < tmp->length(); j++){
             if(this->Y_train.getData()->get(index->get(j))->get(0) == current_value){
                 current_cnt++;
-                current_weight += index->get(j);
             }
         }
         if(current_cnt > res_cnt){
             res_cnt = current_cnt;
             res_value = current_value;
-            res_weight = current_weight;
         }else if(current_cnt == res_cnt){
-            if(res_weight < current_weight){
-                res_cnt = current_cnt;
+            if(current_value < res_value){
                 res_value = current_value;
-                res_weight = current_weight;
             }
         }
     }
@@ -536,7 +544,8 @@ int kNN::index_k_nearest_neighbors(pList<double>* distances, int k) const{
 Dataset kNN::predict(const Dataset& X_test){
     pList<pList<int>*>* data = X_test.getData();
     Dataset res;
-    res.getNameLables()->push_back("label");
+    if(this->X_train.getNameLables()->length() != 0)
+        res.getNameLables()->push_back("label");
     int n_X_test = data->length();
     for(int i = 0; i < n_X_test; i++){
         pList<double>* distances = new pList<double>();
@@ -554,6 +563,9 @@ Dataset kNN::predict(const Dataset& X_test){
 }
 
 double kNN::score(const Dataset& y_test, const Dataset& y_pred){
+    if(y_test.getData()->length() == 0){
+        return -1;
+    }
     int count = 0;
     int n = y_test.getData()->length();
     for(int i = 0; i < n; i++){
@@ -567,12 +579,12 @@ double kNN::score(const Dataset& y_test, const Dataset& y_pred){
 void train_test_split(Dataset& X, Dataset& y, double test_size, 
                         Dataset& X_train, Dataset& X_test, Dataset& y_train, Dataset& y_test){
     int sum = X.getLenghtData();
-    if(test_size > 0.5){
-        test_size = 1 - test_size;
+    if(test_size == 1){
+        return;
     }
-    int n_X_train = (1-test_size)*sum;
-    X_train = X.extract(0, n_X_train-1, 0, -1);
-    y_train = y.extract(0, n_X_train-1, 0, 0);
+    int n_X_train = (1 - test_size)*sum;
+    X_train = X.extract(0, n_X_train - 1, 0, -1);
+    y_train = y.extract(0, n_X_train - 1, 0, 0);
     X_test = X.extract(n_X_train, -1, 0, -1);
     y_test = y.extract(n_X_train, -1, 0, 0);
 }
